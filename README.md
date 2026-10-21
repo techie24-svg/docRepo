@@ -30,7 +30,7 @@ Two limits matter for testing:
 
 ## Deploy on Vercel
 
-The current deployment is https://docrepo-nine.vercel.app (Vercel project `docrepo`, with its storage and secrets already set up). To deploy it somewhere else:
+The current deployment is https://docpoc-virid.vercel.app: Vercel project `docpoc`, connected to this repository, with its storage and secrets set up. Pushing to `main` deploys it. To deploy it somewhere else:
 
 1. Import this repository into Vercel. No framework preset is needed; it runs on Node 22 or later.
 2. Add a Blob store to the project with private access (Storage, then Create, then Blob). The function signs in to it automatically.

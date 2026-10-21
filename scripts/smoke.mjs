@@ -1,7 +1,7 @@
 // End-to-end check of a deployed mock: token, add, get content, Vercel's body limit
 // and a streamed synthetic document larger than Vercel's response limit.
 //
-//   node scripts/smoke.mjs https://docrepo-nine.vercel.app
+//   node scripts/smoke.mjs https://docpoc-virid.vercel.app
 //
 // Reads credentials from .secrets.env (or the environment) and never prints them.
 import { randomBytes } from "node:crypto";
