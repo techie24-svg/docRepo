@@ -64,10 +64,23 @@ private class FileNetDocumentServiceTest {
             Assert.areEqual('application/pdf', document.Mime_Type__c);
             Assert.areEqual(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :staged.ContentDocumentId]);
 
-            HttpRequest add = mock.requests[1];
-            Assert.isTrue(add.getEndpoint().startsWith('callout:FileNet_CM/v1/document/add?nonce='));
-            Assert.isTrue(add.getHeader('Authorization').startsWith('Bearer '));
-            Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(add.getBody());
+            Assert.areEqual(4, mock.requests.size());
+            Assert.isTrue(mock.requests[1].getEndpoint().startsWith('callout:FileNet_CM/v1/document/uploadUrl?nonce='));
+
+            HttpRequest upload = mock.requests[2];
+            Assert.areEqual('PUT', upload.getMethod());
+            Assert.areEqual(FileNetCalloutMock.UPLOAD_URL, upload.getEndpoint());
+            Assert.areEqual('private', upload.getHeader('x-vercel-blob-access'));
+            Map<String, Object> uploaded = (Map<String, Object>) JSON.deserializeUntyped(upload.getBody());
+            Assert.isFalse(uploaded.containsKey('client_header'), 'Credentials must not go to storage');
+            Map<String, Object> item = (Map<String, Object>) ((List<Object>) uploaded.get('content_info_list'))[0];
+            Assert.areEqual(EncodingUtil.base64Encode(Blob.valueOf('%PDF-1.4 test')), item.get('content_bytes'));
+
+            HttpRequest committed = mock.requests[3];
+            Assert.isTrue(committed.getEndpoint().startsWith('callout:FileNet_CM/v1/document/commit?nonce='));
+            Assert.isTrue(committed.getHeader('Authorization').startsWith('Bearer '));
+            Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(committed.getBody());
+            Assert.areEqual(FileNetCalloutMock.UPLOAD_ID, body.get('upload_id'));
             Map<String, Object> header = (Map<String, Object>) body.get('client_header');
             Assert.areEqual('{!$Credential.FileNet_API.client_password}', header.get('client_password'));
             Assert.areEqual(result.testId, [SELECT Id FROM FileNet_Test__c WHERE Request_Id__c = :String.valueOf(header.get('unique_request_id'))].Id);
@@ -79,7 +92,7 @@ private class FileNetDocumentServiceTest {
         System.runAs(tester()) {
             ContentVersion staged = stagedFile();
             FileNetCalloutMock mock = new FileNetCalloutMock();
-            mock.addStatus = 413;
+            mock.commitStatus = 413;
             Test.setMock(HttpCalloutMock.class, mock);
 
             Test.startTest();
@@ -88,10 +101,47 @@ private class FileNetDocumentServiceTest {
 
             Assert.areEqual('Rejected by server', result.status);
             Assert.areEqual(413, result.httpStatus.intValue());
-            Assert.isTrue(result.detail.contains('FUNCTION_PAYLOAD_TOO_LARGE'), result.detail);
+            Assert.isTrue(result.detail.contains('CONTENT_TOO_LARGE'), result.detail);
             Assert.areEqual(0, [SELECT COUNT() FROM IdentityDocument]);
             Assert.areEqual(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :staged.ContentDocumentId]);
         }
+    }
+
+    @IsTest
+    static void salesforceLimitOnTheUploadIsRecorded() {
+        System.runAs(tester()) {
+            ContentVersion staged = stagedFile();
+            FileNetCalloutMock mock = new FileNetCalloutMock();
+            mock.uploadCalloutError = 'Exceeded max size limit of 10000000 with request size 10000001';
+            Test.setMock(HttpCalloutMock.class, mock);
+
+            Test.startTest();
+            FileNetDocumentService.Outcome result = FileNetDocumentService.upload(clientId(), staged.Id, 'Application', false);
+            Test.stopTest();
+
+            Assert.areEqual('Salesforce limit', result.status);
+            Assert.isTrue(result.detail.contains('Exceeded max size limit'), result.detail);
+            Assert.areEqual(0, [SELECT COUNT() FROM IdentityDocument]);
+            Assert.areEqual(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :staged.ContentDocumentId]);
+        }
+    }
+
+    @IsTest
+    static void singleRequestAddDocumentMatchesFileNetsApi() {
+        FileNetCalloutMock mock = new FileNetCalloutMock();
+        Test.setMock(HttpCalloutMock.class, mock);
+
+        Test.startTest();
+        FileNetClient.AddResult added = FileNetClient.addDocument(
+            'Client_Document', 'Application form.pdf', 'Application', EncodingUtil.base64Encode(Blob.valueOf('%PDF-1.4 test'))
+        );
+        Test.stopTest();
+
+        Assert.areEqual(FileNetCalloutMock.DOCUMENT_ID, added.documentId);
+        HttpRequest add = mock.requests[1];
+        Assert.isTrue(add.getEndpoint().startsWith('callout:FileNet_CM/v1/document/add?nonce='));
+        Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(add.getBody());
+        Assert.isTrue(body.containsKey('client_header'));
     }
 
     @IsTest

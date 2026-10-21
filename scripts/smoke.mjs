@@ -1,5 +1,6 @@
-// End-to-end check of a deployed mock: token, add, get content, Vercel's body limit
-// and a streamed synthetic document larger than Vercel's response limit.
+// End-to-end check of a deployed mock: token, add, get content, Vercel's body limit,
+// direct uploads past that limit, FileNet's 20 MB rule, and a streamed synthetic document
+// larger than Vercel's response limit.
 //
 //   node scripts/smoke.mjs https://docpoc-virid.vercel.app
 //
@@ -103,6 +104,47 @@ check("a 3.2 MB file fits under Vercel's 4.5 MB body limit", fitsResult.status =
 const tooBig = randomBytes(Math.floor(3.6 * MB));
 const tooBigResult = await call("/v1/document/add", addBody(tooBig));
 check("a 3.6 MB file gets Vercel's 413", tooBigResult.status === 413, `HTTP ${tooBigResult.status}: ${tooBigResult.text.replace(/\s+/g, " ").slice(0, 60)}`);
+
+// Direct upload: link, PUT straight to storage, commit.
+async function direct(bytes) {
+  const link = await call("/v1/document/uploadUrl", { client_header: clientHeader() });
+  if (link.status !== 200) {
+    return { ...link, stage: "link" };
+  }
+  const target = JSON.parse(link.text);
+  const { client_header: _, ...body } = addBody(bytes);
+  const payload = JSON.stringify(body);
+  const started = performance.now();
+  const put = await fetch(target.upload_url, {
+    method: "PUT",
+    headers: { ...target.upload_headers, "content-type": "application/json" },
+    body: payload,
+  });
+  const putMs = Math.round(performance.now() - started);
+  if (!put.ok) {
+    return { status: put.status, text: await put.text(), stage: "upload" };
+  }
+  const committed = await call("/v1/document/commit", { client_header: clientHeader(), upload_id: target.upload_id });
+  return { ...committed, stage: "commit", bodyMb: payload.length / MB, putMs };
+}
+
+const big = randomBytes(12 * MB);
+const bigResult = await direct(big);
+const bigJson = bigResult.status === 200 ? JSON.parse(bigResult.text) : {};
+check("direct upload stores a 12 MB file", bigResult.status === 200 && bigJson.content_size === big.length,
+  `${bigResult.stage} HTTP ${bigResult.status}, body ${bigResult.bodyMb?.toFixed(2)} MB, upload ${bigResult.putMs} ms`);
+if (bigJson.document_id) {
+  const got = await call("/v2/document/getContent", {
+    client_header: clientHeader(),
+    content_request_info: { document_id: bigJson.document_id },
+  });
+  const content = got.status === 200 ? JSON.parse(got.text).document_info.content_info_list[0].content_bytes : "";
+  check("get content returns the same 12 MB", Buffer.from(content, "base64").equals(big), `HTTP ${got.status}, ${got.ms} ms`);
+}
+
+const overLimit = await direct(randomBytes(21 * MB));
+check("direct upload applies FileNet's 20 MB limit", overLimit.status === 413 && overLimit.text.includes("CONTENT_TOO_LARGE"),
+  `${overLimit.stage} HTTP ${overLimit.status}`);
 
 const synthetic = await call("/v2/document/getContent", {
   client_header: clientHeader(),

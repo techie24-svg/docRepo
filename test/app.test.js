@@ -171,6 +171,70 @@ describe("get content", () => {
   });
 });
 
+describe("direct upload", () => {
+  function directSetup(options = {}) {
+    const store = memoryStore();
+    return { store, app: createApp({ store, config, ...options }) };
+  }
+
+  // What the client PUTs: the Add document body without its client_header.
+  function uploadBody(bytes) {
+    const { client_header: _, ...rest } = addBody(bytes);
+    return JSON.stringify(rest);
+  }
+
+  async function uploadLink(app) {
+    const response = await call(app, "/v1/document/uploadUrl", { client_header: clientHeader() });
+    assert.equal(response.status, 200);
+    return response.json();
+  }
+
+  it("stores a file that was sent straight to storage", async () => {
+    const { store, app } = directSetup();
+    const target = await uploadLink(app);
+    assert.equal(target.upload_method, "PUT");
+    const bytes = randomBytes(20000);
+    store.receiveUpload(target.upload_id, uploadBody(bytes));
+
+    const response = await call(app, "/v1/document/commit", { client_header: clientHeader(), upload_id: target.upload_id });
+    assert.equal(response.status, 200);
+    const added = await response.json();
+    assert.equal(added.content_size, 20000);
+    assert.equal(added.diagnostics.upload_id, target.upload_id);
+    assert.equal(store.hasUpload(target.upload_id), false);
+
+    const got = await call(app, "/v2/document/getContent", {
+      client_header: clientHeader(),
+      content_request_info: { document_id: added.document_id },
+    });
+    const info = (await got.json()).document_info;
+    assert.deepEqual(Buffer.from(info.content_info_list[0].content_bytes, "base64"), bytes);
+  });
+
+  it("applies FileNet's size limit when the upload is committed", async () => {
+    const { store, app } = directSetup({ maxContentBytes: 1000 });
+    const target = await uploadLink(app);
+    store.receiveUpload(target.upload_id, uploadBody(randomBytes(1001)));
+    const response = await call(app, "/v1/document/commit", { client_header: clientHeader(), upload_id: target.upload_id });
+    assert.equal(response.status, 413);
+    assert.equal((await response.json()).error_code, "CONTENT_TOO_LARGE");
+    assert.equal(store.hasUpload(target.upload_id), false);
+  });
+
+  it("reports a commit with nothing uploaded", async () => {
+    const { app } = directSetup();
+    const response = await call(app, "/v1/document/commit", { client_header: clientHeader(), upload_id: "MISSING" });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error_code, "UPLOAD_NOT_FOUND");
+  });
+
+  it("needs valid client credentials for an upload link", async () => {
+    const { app } = directSetup();
+    const response = await call(app, "/v1/document/uploadUrl", { client_header: clientHeader({ client_password: "nope" }) });
+    assert.equal(response.status, 403);
+  });
+});
+
 describe("status page", () => {
   it("lists recent documents", async () => {
     const app = setup();

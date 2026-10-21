@@ -6,8 +6,8 @@
             </template>
 
             <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
-                Files go to the mock FileNet API. Use test files only. Vercel accepts request bodies up to 4.5 MB,
-                which is a file of about 3.3 MB; HTTP 413 above that means Salesforce did send the request.
+                Files go to the mock FileNet API's storage directly, so it accepts files up to FileNet's 20 MB.
+                HTTP 413 means the file is over that. Use test files only.
             </p>
 
             <template lwc:if={showClientPicker}>

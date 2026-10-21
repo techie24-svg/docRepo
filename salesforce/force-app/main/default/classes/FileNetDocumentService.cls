@@ -56,7 +56,7 @@ public with sharing class FileNetDocumentService {
     public static void runUpload(FileNet_Test__c test, Id clientId, ContentVersion version, String documentType) {
         test.Heap_Limit_Bytes__c = Limits.getLimitHeapSize();
         try {
-            FileNetClient.AddResult added = FileNetClient.addDocument(
+            FileNetClient.AddResult added = FileNetClient.addDocumentDirect(
                 DOC_CLASS, test.File_Name__c, documentType, encodedContent(version.Id)
             );
             record(test, added.call);

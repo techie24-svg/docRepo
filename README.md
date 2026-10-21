@@ -23,10 +23,19 @@ It follows the Guardian contract: get a token for a nonce, then call FileNet wit
 
 Every document call needs a `client_header` with `client_id`, `client_password`, `end_user_id`, `request_time_stamp` (`yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`) and `unique_request_id`. Errors come back as `{ error_code, error_message, unique_request_id }`.
 
-Two limits matter for testing:
+### Direct upload
 
-- Vercel refuses request bodies over 4.5 MB with HTTP 413. After base64 encoding, that is a file of about 3.2 MB. A 413 therefore means Salesforce built and sent the request.
-- Get content streams its response, so Vercel's 4.5 MB response limit doesn't apply. A `document_id` of `{SYNTHETIC-<bytes>}` returns a generated PDF of that many bytes (1 KB to 50 MB), so views can be tested above the upload limit.
+Vercel refuses any request over 4.5 MB to a function, which is a file of about 3.2 MB after base64 encoding. So the mock also has a direct upload, which sends the Add document body straight to Vercel Blob storage and keeps only small calls on the function. The Salesforce harness uses it.
+
+| Step | Call | What it does |
+|---|---|---|
+| 1 | `POST /v1/document/uploadUrl?nonce=N` | Bearer JWT and `client_header`. Returns `upload_id`, a one-time `upload_url` (valid 15 minutes) and the `upload_headers` to send with it. |
+| 2 | `PUT <upload_url>` | The Add document body without `client_header`, so no credentials reach storage. Goes to Vercel Blob, not the function, so the 4.5 MB limit doesn't apply. |
+| 3 | `POST /v1/document/commit?nonce=N` | Bearer JWT, `client_header` and `upload_id`. Checks the uploaded body as Add document would, including FileNet's 20 MB limit (HTTP 413 `CONTENT_TOO_LARGE`), then returns `document_id`. |
+
+The real FileNet API takes the whole body in one Add document call. The upload is the same size and shape either way, so it tests the same Salesforce limits.
+
+Get content streams its response, so Vercel's 4.5 MB response limit doesn't apply to it either. A `document_id` of `{SYNTHETIC-<bytes>}` returns a generated PDF of that many bytes (1 KB to 50 MB), for testing views of large files.
 
 ## Deploy on Vercel
 
