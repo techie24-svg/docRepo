@@ -1,0 +1,12 @@
+node_modules/
+.vercel/
+.env*
+!.env.example
+# Generated test credentials, shared by Vercel and the Salesforce setup script.
+.secrets.env
+.DS_Store
+
+# Salesforce CLI
+salesforce/.sf/
+salesforce/.sfdx/
+.vercel

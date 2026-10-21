@@ -1,0 +1,9 @@
+.body {
+    position: relative;
+}
+
+.preview {
+    display: block;
+    max-width: 100%;
+    max-height: 420px;
+}

@@ -1,0 +1,115 @@
+<template>
+    <lightning-card title="FileNet upload test" icon-name="standard:document">
+        <div class="slds-p-horizontal_medium body">
+            <template lwc:if={busy}>
+                <lightning-spinner alternative-text="Working" size="small"></lightning-spinner>
+            </template>
+
+            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                Files go to the mock FileNet API. Use test files only. Vercel accepts request bodies up to 4.5 MB,
+                which is a file of about 3.3 MB; HTTP 413 above that means Salesforce did send the request.
+            </p>
+
+            <template lwc:if={showClientPicker}>
+                <lightning-record-picker
+                    class="slds-m-bottom_small"
+                    label="Client"
+                    object-api-name="Account"
+                    placeholder="Search accounts"
+                    onchange={handleClientChange}
+                ></lightning-record-picker>
+            </template>
+
+            <div class="slds-grid slds-wrap slds-gutters_small slds-grid_vertical-align-end">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-radio-group
+                        name="mode"
+                        label="Mode"
+                        type="button"
+                        options={modeOptions}
+                        value={mode}
+                        onchange={handleModeChange}
+                    ></lightning-radio-group>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-input label="Document type" value={documentType} onchange={handleTypeChange}></lightning-input>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                    <lightning-file-upload
+                        label="Upload a file"
+                        name="file"
+                        record-id={stagingRecordId}
+                        disabled={actionsDisabled}
+                        onuploadfinished={handleUploadFinished}
+                    ></lightning-file-upload>
+                </div>
+            </div>
+
+            <template lwc:if={lastResult}>
+                <div class={resultClass}>
+                    <p>
+                        <strong>{lastResult.status}</strong>
+                        <span class="slds-m-left_x-small">{lastResult.text}</span>
+                    </p>
+                    <template lwc:if={lastResult.detail}>
+                        <p class="slds-text-body_small slds-m-top_xx-small">{lastResult.detail}</p>
+                    </template>
+                </div>
+            </template>
+
+            <template lwc:if={viewer}>
+                <div class="slds-box slds-box_x-small slds-m-top_small">
+                    <p>
+                        <strong>{viewer.fileName}</strong>
+                        <span class="slds-m-left_x-small">{viewer.sizeText}</span>
+                        <a class="slds-m-left_small" href={viewer.url} download={viewer.fileName}>Download</a>
+                    </p>
+                    <template lwc:if={viewer.isImage}>
+                        <img class="preview slds-m-top_small" src={viewer.dataUrl} alt={viewer.fileName} />
+                    </template>
+                </div>
+            </template>
+
+            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_large slds-m-bottom_x-small">
+                <h3 class="slds-text-heading_small">Test runs</h3>
+                <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" onclick={refresh}></lightning-button-icon>
+            </div>
+            <lightning-datatable
+                key-field="id"
+                data={tests}
+                columns={testColumns}
+                hide-checkbox-column
+            ></lightning-datatable>
+
+            <h3 class="slds-text-heading_small slds-m-top_large slds-m-bottom_x-small">Client documents</h3>
+            <div class="slds-grid slds-gutters_x-small slds-grid_vertical-align-end slds-m-bottom_small">
+                <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-4">
+                    <lightning-input
+                        type="number"
+                        label="Synthetic document size (MB)"
+                        value={syntheticMb}
+                        min="0.01"
+                        max="50"
+                        step="0.01"
+                        onchange={handleSyntheticChange}
+                    ></lightning-input>
+                </div>
+                <div class="slds-col slds-grow-none">
+                    <lightning-button label="Add synthetic document" onclick={handleCreateSynthetic} disabled={actionsDisabled}></lightning-button>
+                </div>
+            </div>
+            <template lwc:if={hasDocuments}>
+                <lightning-datatable
+                    key-field="id"
+                    data={documents}
+                    columns={documentColumns}
+                    hide-checkbox-column
+                    onrowaction={handleRowAction}
+                ></lightning-datatable>
+            </template>
+            <template lwc:else>
+                <p class="slds-text-body_small slds-text-color_weak slds-p-bottom_medium">No Client Documents for this client yet.</p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

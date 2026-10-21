@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FileNet_Document_Id__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>The GUID FileNet returns from Add document. Salesforce keeps only this reference; the file lives in FileNet.</description>
+    <externalId>true</externalId>
+    <label>FileNet Document ID</label>
+    <length>60</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

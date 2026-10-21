@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/auth/oauth/v2/token/generate", "destination": "/api?route=token" },
+    { "source": "/:version(v1|v2)/document/:operation", "destination": "/api?route=:operation" },
+    { "source": "/", "destination": "/api?route=status" }
+  ]
+}

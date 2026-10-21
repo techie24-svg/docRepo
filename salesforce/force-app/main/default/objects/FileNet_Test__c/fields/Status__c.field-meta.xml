@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Status__c</fullName>
+    <description>Rejected by server means Salesforce sent the request and the API refused it, for example Vercel's 413. Salesforce limit means Salesforce stopped before or while sending.</description>
+    <label>Status</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value><fullName>Running</fullName><default>false</default><label>Running</label></value>
+            <value><fullName>Stored</fullName><default>false</default><label>Stored</label></value>
+            <value><fullName>Retrieved</fullName><default>false</default><label>Retrieved</label></value>
+            <value><fullName>Rejected by server</fullName><default>false</default><label>Rejected by server</label></value>
+            <value><fullName>Salesforce limit</fullName><default>false</default><label>Salesforce limit</label></value>
+            <value><fullName>Failed</fullName><default>false</default><label>Failed</label></value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

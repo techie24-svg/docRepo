@@ -1,0 +1,17 @@
+{
+  "name": "docrepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mock of Guardian's FileNet CM REST API, for testing document uploads from Salesforce.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.3.0",
+    "jose": "^6.2.12"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
