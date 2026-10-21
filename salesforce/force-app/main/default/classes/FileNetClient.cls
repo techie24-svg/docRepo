@@ -81,9 +81,8 @@ public with sharing class FileNetClient {
                 (String) target.get('upload_url'), (Map<String, Object>) target.get('upload_headers'), body, call
             );
             body = null;
-            if (stored.getStatusCode() != 200) {
-                call.statusCode = stored.getStatusCode();
-                throw failure('The upload to storage failed. ' + errorText(stored.getStatusCode(), stored.getBody()), call);
+            if (call.statusCode != 200) {
+                throw failure('The upload to storage failed. ' + errorText(call.statusCode, stored.getBody()), call);
             }
 
             Map<String, Object> result = postJson('/v1/document/commit', nonce, jwt,
@@ -170,6 +169,7 @@ public with sharing class FileNetClient {
         request.setHeader('Content-Type', 'application/json');
         request.setTimeout(timeoutMs);
         request.setBody(body);
+        call.statusCode = null;
         HttpResponse response;
         try {
             response = new Http().send(request);
@@ -195,8 +195,11 @@ public with sharing class FileNetClient {
         request.setTimeout(UPLOAD_TIMEOUT_MS);
         request.setBody(body);
         call.heapBytes = Limits.getHeapSize();
+        call.statusCode = null;
         try {
-            return new Http().send(request);
+            HttpResponse response = new Http().send(request);
+            call.statusCode = response.getStatusCode();
+            return response;
         } catch (CalloutException e) {
             throw failure(e.getMessage(), call);
         }

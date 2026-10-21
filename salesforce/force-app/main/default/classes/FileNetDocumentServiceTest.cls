@@ -121,6 +121,7 @@ private class FileNetDocumentServiceTest {
 
             Assert.areEqual('Salesforce limit', result.status);
             Assert.isTrue(result.detail.contains('Exceeded max size limit'), result.detail);
+            Assert.isNull(result.httpStatus, 'The upload never got a response.');
             Assert.areEqual(0, [SELECT COUNT() FROM IdentityDocument]);
             Assert.areEqual(0, [SELECT COUNT() FROM ContentDocument WHERE Id = :staged.ContentDocumentId]);
         }

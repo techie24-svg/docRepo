@@ -58,9 +58,9 @@ node salesforce/scripts/set-credentials.mjs <org>
 sf org assign permset --name FileNet_Upload_Tester --target-org <org>
 ```
 
-`set-credentials.mjs` sends the secrets to the `FileNet_API` External Credential through the CLI's standard input, so they never touch disk or the command line. Secrets can't travel in metadata, so run it after deploying to any new org. If the Vercel address changes, update `namedCredentials/FileNet_CM.namedCredential-meta.xml`.
+`set-credentials.mjs` sends the secrets to the `FileNet_API` External Credential through the CLI's standard input, so they never touch disk or the command line. Secrets can't travel in metadata, so run it after deploying to any new org. If the Vercel address changes, update `namedCredentials/FileNet_CM.namedCredential-meta.xml`. The upload links point at `https://vercel.com`, which the `Vercel_Blob` Remote Site Setting allows.
 
-To test, open the **FileNet Upload Test** tab (or add the component to an Account page), pick a client, choose Synchronous or Asynchronous, and upload a file. Each run is saved as a FileNet Test record with the file size, request or response body size, heap used, call time and HTTP status. Uploaded files are staged in Salesforce, sent to the API, then deleted and removed from the Recycle Bin. To test views above the upload limit, use **Add synthetic document**, then **View**.
+To test, open the **FileNet Upload Test** tab (or add the component to an Account page), pick a client, choose Synchronous or Asynchronous, and upload a file. Each run is saved as a FileNet Test record with the file size, request or response body size, heap used, call time and HTTP status. Uploaded files are staged in Salesforce, sent through the direct upload, then deleted and removed from the Recycle Bin. To test views of large files, use **Add synthetic document**, then **View**.
 
 The same runs can be scripted, for example:
 
@@ -76,18 +76,18 @@ Playground sandbox, 21 October 2026. Sizes are in MiB. Synchronous runs use the 
 
 | File | Mode | Request or response body | Result |
 |---|---|---|---|
-| 1 | Upload, sync | 1.40 MB | Stored |
-| 3 | Upload, sync | 4.19 MB | Stored |
-| 3.3 to 7 | Upload, sync | 4.61 to 9.33 MB | Sent by Salesforce; refused by Vercel (413) |
-| 8 | Upload, sync | 10.67 MB | Salesforce: `Exceeded max size limit of 10000000 with request size 10000001` |
-| 5 to 12 | Upload, async | 6.99 to 16.00 MB | Sent by Salesforce; refused by Vercel (413) |
-| 16 | Upload, async | — | Salesforce: `Apex heap size too large: 44742794` |
+| 1 to 7 | Upload, sync | 1.33 to 9.33 MB | Stored |
+| 7.5 | Upload, sync | 10.00 MB | Salesforce: `Exceeded max size limit of 10000000 with request size 10002432` |
+| 10 and 12 | Upload, async | 13.33 and 16.00 MB | Stored |
+| 14 and 16 | Upload, async | — | Salesforce: `Apex heap size too large: 39151168` and `44743576` |
 | 2 to 5 | View, sync | 2.67 to 6.67 MB | Retrieved |
+
+Uploads used the direct upload. Before it existed, Vercel refused every upload above about 3.2 MB with HTTP 413.
 
 What this shows:
 
 - **Synchronous uploads** stop at a 10,000,000-byte request body, which is a file of about 7 MB. Salesforce's documentation still says 6 MB.
-- **Asynchronous uploads** sent a 12 MB file. A 16 MB file ran out of heap, because the job holds the file, its base64 copy and the request body at the same time.
+- **Asynchronous uploads** stored a 12 MB file. A 14 MB file ran out of heap, because the job holds the base64 copy and the request body built from it at the same time, about 2.7 times the file size. So uploads from Apex stop at about 12 MB, below FileNet's 20 MB limit. The real API takes the same body, so the same limit applies to it.
 - **Views** returned 5 MB files synchronously. The heap reading went above its limit without an error, but the component also passes the file to the browser, so check large views in the component too.
 
 These are sandbox measurements on the current release. Salesforce documents lower limits, so design to the documented ones, or repeat these tests in production before relying on the headroom.
